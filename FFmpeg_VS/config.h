@@ -3,7 +3,6 @@
 #define FFMPEG_CONFIG_H
 
 #define inline __inline
-#define snprintf _snprintf
 
 #define FFMPEG_CONFIGURATION "--toolchain=msvc --arch=x86 --target-os=win32 --enable-cross-compile --disable-static --enable-shared --disable-ffplay --disable-ffprobe --disable-ffserver --disable-doc --disable-debug --enable-libx264 --enable-gpl --extra-cflags='-I/local32/include -MT' --extra-cxxflags='-I/local32/include -MT' --extra-ldflags='-L/local32/lib /nodefaultlib:msvcrt.lib' --prefix=/local32/ffmpeg"
 #define FFMPEG_LICENSE "GPL version 2 or later"

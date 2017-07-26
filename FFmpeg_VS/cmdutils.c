@@ -61,7 +61,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #endif
-#ifdef _WIN32
+#if HAVE_SETDLLDIRECTORY
 #include <windows.h>
 #endif
 
@@ -113,7 +113,7 @@ static void log_callback_report(void *ptr, int level, const char *fmt, va_list v
 
 void init_dynload(void)
 {
-#ifdef _WIN32
+#if HAVE_SETDLLDIRECTORY
     /* Calling SetDllDirectory with the empty string (but not NULL) removes the
      * current working directory from the DLL search path as a security pre-caution. */
     SetDllDirectory("");
@@ -1022,15 +1022,15 @@ int opt_loglevel(void *optctx, const char *opt, const char *arg)
         int level;
     } log_levels[] =
     {
-        { "quiet"  , AV_LOG_QUIET   },
-        { "panic"  , AV_LOG_PANIC   },
-        { "fatal"  , AV_LOG_FATAL   },
-        { "error"  , AV_LOG_ERROR   },
+        { "quiet", AV_LOG_QUIET   },
+        { "panic", AV_LOG_PANIC   },
+        { "fatal", AV_LOG_FATAL   },
+        { "error", AV_LOG_ERROR   },
         { "warning", AV_LOG_WARNING },
-        { "info"   , AV_LOG_INFO    },
+        { "info", AV_LOG_INFO    },
         { "verbose", AV_LOG_VERBOSE },
-        { "debug"  , AV_LOG_DEBUG   },
-        { "trace"  , AV_LOG_TRACE   },
+        { "debug", AV_LOG_DEBUG   },
+        { "trace", AV_LOG_TRACE   },
     };
     char *tail;
     int level;
@@ -1287,15 +1287,15 @@ static int warned_cfg = 0;
 
 static void print_all_libs_info(int flags, int level)
 {
-    //PRINT_LIB_INFO(avutil,     AVUTIL,     flags, level);
-    //PRINT_LIB_INFO(avcodec,    AVCODEC,    flags, level);
-    //PRINT_LIB_INFO(avformat,   AVFORMAT,   flags, level);
-    //PRINT_LIB_INFO(avdevice,   AVDEVICE,   flags, level);
-    //PRINT_LIB_INFO(avfilter,   AVFILTER,   flags, level);
+    PRINT_LIB_INFO(avutil,     AVUTIL,     flags, level);
+    PRINT_LIB_INFO(avcodec,    AVCODEC,    flags, level);
+    PRINT_LIB_INFO(avformat,   AVFORMAT,   flags, level);
+    PRINT_LIB_INFO(avdevice,   AVDEVICE,   flags, level);
+    PRINT_LIB_INFO(avfilter,   AVFILTER,   flags, level);
     //PRINT_LIB_INFO(avresample, AVRESAMPLE, flags, level);
-    //PRINT_LIB_INFO(swscale,    SWSCALE,    flags, level);
-    //PRINT_LIB_INFO(swresample, SWRESAMPLE, flags, level);
-    //PRINT_LIB_INFO(postproc,   POSTPROC,   flags, level);
+    PRINT_LIB_INFO(swscale,    SWSCALE,    flags, level);
+    PRINT_LIB_INFO(swresample, SWRESAMPLE, flags, level);
+    PRINT_LIB_INFO(postproc,   POSTPROC,   flags, level);
 }
 
 static void print_program_info(int flags, int level)
@@ -1701,7 +1701,7 @@ static int compare_codec_desc(const void *a, const void *b)
     const AVCodecDescriptor *const *db = b;
     
     return (*da)->type != (*db)->type ? FFDIFFSIGN((*da)->type, (*db)->type) :
-    strcmp((*da)->name, (*db)->name);
+           strcmp((*da)->name, (*db)->name);
 }
 
 static unsigned get_codecs_sorted(const AVCodecDescriptor ***rcodecs)
@@ -1862,11 +1862,10 @@ int show_encoders(void *optctx, const char *opt, const char *arg)
 
 int show_bsfs(void *optctx, const char *opt, const char *arg)
 {
-    const AVBitStreamFilter *bsf = NULL;
-    void *opaque = NULL;
+    AVBitStreamFilter *bsf = NULL;
     
     printf("Bitstream filters:\n");
-    while((bsf = av_bsf_next(&opaque)))
+    while((bsf = av_bitstream_filter_next(bsf)))
     {
         printf("%s\n", bsf->name);
     }
@@ -2021,7 +2020,7 @@ int show_layouts(void *optctx, const char *opt, const char *arg)
         {
             printf("%-14s ", name);
             for(j = 1; j; j <<= 1)
-                        if((layout & j))
+                if((layout & j))
                 {
                     printf("%s%s", (layout & (j - 1)) ? "+" : "", av_get_channel_name(j));
                 }
@@ -2054,8 +2053,8 @@ static void show_help_codec(const char *name, int encoder)
     }
     
     codec = encoder ? avcodec_find_encoder_by_name(name) :
-    avcodec_find_decoder_by_name(name);
-    
+            avcodec_find_decoder_by_name(name);
+            
     if(codec)
     {
         print_codec(codec);
@@ -2315,7 +2314,7 @@ FILE *get_preset_file(char *filename, size_t filename_size,
         if(GetModuleFileNameA(GetModuleHandleA(NULL), datadir, sizeof(datadir) - 1))
         {
             for(ls = datadir; ls < datadir + strlen(datadir); ls++)
-                        if(*ls == '\\')
+                if(*ls == '\\')
                 {
                     *ls = '/';
                 }
@@ -2367,15 +2366,15 @@ AVDictionary *filter_codec_opts(AVDictionary *opts, enum AVCodecID codec_id,
     AVDictionary    *ret = NULL;
     AVDictionaryEntry *t = NULL;
     int            flags = s->oformat ? AV_OPT_FLAG_ENCODING_PARAM
-    : AV_OPT_FLAG_DECODING_PARAM;
+                           : AV_OPT_FLAG_DECODING_PARAM;
     char          prefix = 0;
     const AVClass    *cc = avcodec_get_class();
     
     if(!codec)
         codec            = s->oformat ? avcodec_find_encoder(codec_id)
-        : avcodec_find_decoder(codec_id);
-        
-    switch(st->codecpar->codec_type)
+                           : avcodec_find_decoder(codec_id);
+                           
+    switch(st->codec->codec_type)
     {
         case AVMEDIA_TYPE_VIDEO:
             prefix  = 'v';
@@ -2449,8 +2448,8 @@ AVDictionary **setup_find_stream_info_opts(AVFormatContext *s,
         return NULL;
     }
     for(i = 0; i < s->nb_streams; i++)
-                opts[i] = filter_codec_opts(codec_opts, s->streams[i]->codecpar->codec_id,
-                                            s, s->streams[i], NULL);
+        opts[i] = filter_codec_opts(codec_opts, s->streams[i]->codec->codec_id,
+                                    s, s->streams[i], NULL);
     return opts;
 }
 
@@ -2480,7 +2479,7 @@ double get_rotation(AVStream *st)
 {
     AVDictionaryEntry *rotate_tag = av_dict_get(st->metadata, "rotate", NULL, 0);
     uint8_t *displaymatrix = av_stream_get_side_data(st,
-            AV_PKT_DATA_DISPLAYMATRIX, NULL);
+                             AV_PKT_DATA_DISPLAYMATRIX, NULL);
     double theta = 0;
     
     if(rotate_tag && *rotate_tag->value && strcmp(rotate_tag->value, "0"))
